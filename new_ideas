@@ -1,5 +1,21 @@
 local cjson = require("cjson")
 
+
+videohub = TcpSocket.New()
+videohub.ReadTimeout = 0
+videohub.WriteTimeout = 0
+videohub.ReconnectTimeout = 1
+
+
+videohub.EventHandler = function(socket, evt, err)
+  if evt == TcpSocket.Events.Data then
+    device_response= videohub:Read(videohub.BufferLength)
+    print(device_response)
+  end
+end
+
+
+
 -- Open the file in write mode
 local file = io.open("device_response.json", "w")
 
@@ -30,7 +46,6 @@ end
 -- Close the file
 file:close()
 
-local cjson = require("cjson")
 
 -- Read the JSON string
 local json_string = '{"data": [{"INPUT LABELS:": [line1, line2, line3, ..., line40]}]}'
