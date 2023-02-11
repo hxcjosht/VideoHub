@@ -1,69 +1,78 @@
-local cjson = require("cjson")
 
 
-videohub = TcpSocket.New()
+
+videohub=TcpSocket.New()
 videohub.ReadTimeout = 0
 videohub.WriteTimeout = 0
 videohub.ReconnectTimeout = 1
+ip="10.30.13.17"
+port=9990
+
+
 
 
 videohub.EventHandler = function(socket, evt, err)
-  if evt == TcpSocket.Events.Data then
-    device_response= videohub:Read(videohub.BufferLength)
-    print(device_response)
+  if evt == TcpSocket.Events.Connected then
+    print( "Connection Made" )    
+  elseif evt == TcpSocket.Events.Reconnect then 
+    print( "reconnecting..." )  
+  elseif evt == TcpSocket.Events.Data then
+    message = videohub:Read(videohub.BufferLength)
+    print(message)
+  elseif evt == TcpSocket.Events.Closed then
+    print( "connection was closed" )
+  elseif evt == TcpSocket.Events.Error then
+    print( "connection was closed due to error", err )
+  elseif evt == TcpSocket.Events.Timeout then
+    print( "connection timed out" )
+  else
+    print( "unknown socket event", evt ) -- should not occur
+   return message 
   end
 end
 
 
+--Controls.Inputs[4].EventHandler= function ()
 
--- Open the file in write mode
-local file = io.open("device_response.json", "w")
+function get_info()
+  message = TcpSocket.Events.Data
+  input_labels = {}
+  output_labels = {}
 
--- Convert the device response to JSON format
-local json_response = cjson.encode(device_response)
+  -- Define a flag to keep track of whether we're in the input label section or output label section
+  in_input_section = false
+  in_output_section = false
 
--- Write the JSON string to the file
-file:write(json_response)
-
--- Close the file
-file:close()
-
--- Open the file in read mode
-file = io.open("device_response.json", "r")
-
--- Read the contents of the file
-local contents = file:read("*all")
-
--- Parse the JSON data
-local parsed_data = cjson.decode(contents)
-
--- Fill the table with the parsed data
-local table_name = "INPUT_LABELS"
-for k, v in pairs(parsed_data) do
-  qsys.SetTableValue(table_name, k, v)
-end
-
--- Close the file
-file:close()
-
-
--- Read the JSON string
-local json_string = '{"data": [{"INPUT LABELS:": [line1, line2, line3, ..., line40]}]}'
-
--- Parse the JSON string
-local parsed_data = cjson.decode(json_string)
-
--- Find the "INPUT LABELS:" data
-local lines = {}
-for k, v in pairs(parsed_data.data) do
-  if k == "INPUT LABELS:" then
-    lines = v
-    break
+  -- Loop through each line of the text
+  for line in string.gmatch(message, "[^\n]+") do
+    if string.match(line, "INPUT LABELS:") then
+      in_input_section = true
+    elseif string.match(line, "OUTPUT LABELS:") then
+      in_input_section = false
+      in_output_section = true
+    elseif in_input_section then
+      -- If we're in the input label section, extract the index and label from the line
+      index, label = string.match(line, "(%d+)%s(.+)")
+      if index and label then
+        input_labels[tonumber(index) + 1] = label
+      end
+    elseif in_output_section then
+      -- If we're in the output label section, extract the index and label from the line
+      index, label = string.match(line, "(%d+)%s(.+)")
+      if index and label then
+        output_labels[tonumber(index) + 1] = label
+      end
+    end
   end
-end
+end  
 
--- Store the first 39 lines in a table in Q-Sys
-local table_name = "INPUT_LABELS"
-for i = 1, 39 do
-  qsys.SetTableValue(table_name, i, lines[i])
-end
+Controls.Inputs[1].Choices= input_labels
+Controls.Inputs[2].Choices= output_labels
+
+
+
+
+
+
+
+videohub:Connect(ip,port)
