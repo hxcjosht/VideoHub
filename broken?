@@ -1,3 +1,4 @@
+-- Connect to the Videohub
 videohub = TcpSocket.New()
 videohub.ReadTimeout = 0
 videohub.WriteTimeout = 0
@@ -7,89 +8,65 @@ port = 9990
 
 buffer = ""
 
-videohub.EventHandler = function(socket, evt, err)
-  if evt == TcpSocket.Events.Connected then
-    print("Connection Made")    
-  elseif evt == TcpSocket.Events.Reconnect then 
-    print("Reconnecting...")  
-  elseif evt == TcpSocket.Events.Data then
-    message = videohub:Read(videohub.BufferLength)
-    --print(message)
-    buffer = buffer .. message
-    -- Check if the buffer contains the expected message
-    if string.match(buffer, "INPUT LABELS:.*OUTPUT LABELS:") then
-      -- If the buffer contains the complete message, process it
-      get_info(buffer)
-      -- Reset the buffer for the next set of messages
-      buffer = ""
+input_labels = {}
+output_labels = {}
+
+
+
+
+-- Define the number of inputs and outputs based on the selected model
+model = 40
+Controls.models.Choices = { "12x12", "40x40" }
+Controls.models.EventHandler = function(ctl)
+    if ctl.String == "12x12" then
+        model = 12
+    else
+        model = 40
     end
-  elseif evt == TcpSocket.Events.Closed then
-    print("Connection was closed")
-  elseif evt == TcpSocket.Events.Error then
-    print("Connection was closed due to error: ", err)
-  elseif evt == TcpSocket.Events.Timeout then
-    print("Connection timed out")
-  else
-    print("Unknown socket event: ", evt) -- should not occur
-  end
+end
+
+videohub.EventHandler = function(socket, evt, err)
+    if evt == TcpSocket.Events.Data then
+        message = videohub:Read(videohub.BufferLength)
+        buffer = buffer .. message
+        if string.match(buffer, "INPUT LABELS:.*OUTPUT LABELS:") then
+            parse_inputs(buffer)
+            parse_outputs(buffer)
+            buffer = ""
+        end
+    end
+end
+
+function parse_inputs(message)
+  local count = 0
+    if string.match(line, "INPUT LABELS:") then
+      for line in string.gmatch(message, "[^\n]+") do
+        index, label = string.match(line, "(%d+)%s(.+)")
+          if index and label then
+              input_labels[tonumber(index) + 1] = label
+              count = count + 1
+            end 
+        if count >= model then break end
+      end 
+    end 
 end
 
 
-function get_info(message)
-  input_labels = {}
-  output_labels = {}
+function parse_outputs(message)
+  local count = 0
+    if string.match(line, "OUTPUT LABELS:") then
+      for line in string.gmatch(message, "[^\n]+") do
+        index, label = string.match(line, "(%d+)%s(.+)")
+          if index and label then
+              output_labels[tonumber(index) + 1] = label
+              count = count + 1
+            end 
+        if count >= model then break end
+      end 
+    end 
+end 
 
-  -- Define a flag to keep track of whether we're in the input label section or output label section
-  in_input_section = false
-  in_output_section = false
-
-  -- Counter for the number of input/output labels extracted
-  count = 0
-
-  -- Loop through each line of the text
-  for line in string.gmatch(message, "[^\n]+") do
-    if string.match(line, "INPUT LABELS:") then
-      in_input_section = true
-    elseif string.match(line, "OUTPUT LABELS:") then
-      in_input_section = false
-      in_output_section = true
-    elseif in_input_section then
-      -- If we're in the input label section, extract the index and label from the line
-      index, label = string.match(line, "(%d+)%s(.+)")
-      if index and label then
-        input_labels[tonumber(index) + 1] = label
-        count = count + 1
-        if count >= 40 then break end
-      end
-    elseif in_output_section then
-      -- If we're in the output label section, extract the index and label from the line
-      index, label = string.match(line, "(%d+)%s(.+)")
-      if index and label then
-        output_labels[tonumber(index) + 1] = label
-        count = count + 1
-        if count >= 40 then break end
-      end
-    end
-  end
- for index, value in pairs(input_labels) do
-      if index == "INPUT LABELS:" then
-      lines = value
-      break
-    end
-    Controls.Inputs[2].Choices= output_labels
-    for index, value in pairs(output_labels) do
-      if index == "OUTPUT LABELS:" then
-      lines = value
-      break
-    end
-    Controls.Inputs[2].Choices= output_labels
-
-  end
-  end 
-  
-end  
-
-Controls.Inputs[1].EventHandler=function(ctrl)
+Controls.input.EventHandler=function(ctrl)
 for i,v in ipairs(input_labels) do
 if ctrl.String==v
 then input=i-1
@@ -100,7 +77,7 @@ end
 
 
 
-Controls.Inputs[2].EventHandler=function(ctrl)
+Controls.output.EventHandler=function(ctrl)
 for i,v in ipairs(output_labels) do
 if ctrl.String==v
 then output=i-1
@@ -109,13 +86,13 @@ end
 end
 end
 
-Controls.Inputs[3].EventHandler=function(ctrl)
+Controls.take.EventHandler=function(ctrl)
+
 videohub:Write("VIDEO OUTPUT ROUTING:\r\n"..output.." "..input.."\r\n\r\n")
 print("YOUR OUTPUT IS:   VIDEO OUTPUT ROUTING:\r\n"..input.." "..output.."\r\n\r\n")
 end
 
-Controls.Inputs[4].EventHandler=function()
-  videohub:Connect(ip,port)
-end
+
 
 videohub:Connect(ip,port)
+
