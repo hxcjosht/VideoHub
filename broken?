@@ -11,7 +11,8 @@ buffer = ""
 input_labels = {}
 output_labels = {}
 
-
+Controls.input.Choices = input_labels
+Controls.output.Choices = output_labels
 
 
 -- Define the number of inputs and outputs based on the selected model
@@ -25,17 +26,7 @@ Controls.models.EventHandler = function(ctl)
     end
 end
 
-videohub.EventHandler = function(socket, evt, err)
-    if evt == TcpSocket.Events.Data then
-        message = videohub:Read(videohub.BufferLength)
-        buffer = buffer .. message
-        if string.match(buffer, "INPUT LABELS:.*OUTPUT LABELS:") then
-            parse_inputs(buffer)
-            parse_outputs(buffer)
-            buffer = ""
-        end
-    end
-end
+
 
 function parse_inputs(message)
   local count = 0
@@ -66,33 +57,45 @@ function parse_outputs(message)
     end 
 end 
 
+
+
+videohub.EventHandler = function(socket, evt, err)
+    if evt == TcpSocket.Events.Data then
+        message = videohub:Read(videohub.BufferLength)
+        buffer = buffer .. message
+        if string.match(buffer, "INPUT LABELS:.*OUTPUT LABELS:") then
+            parse_inputs(buffer)
+            parse_outputs(buffer)
+            buffer = ""
+        end
+    end
+end
+
 Controls.input.EventHandler=function(ctrl)
-for i,v in ipairs(input_labels) do
-if ctrl.String==v
-then input=i-1
-return input
-end
-end
+  for i,v in ipairs(input_labels) do
+    if ctrl.String==v
+      then input=i-1
+      return input
+    end
+  end
 end
 
 
 
 Controls.output.EventHandler=function(ctrl)
-for i,v in ipairs(output_labels) do
-if ctrl.String==v
-then output=i-1
-return output
-end
-end
+  for i,v in ipairs(output_labels) do
+    if ctrl.String==v
+      then output=i-1
+      return output
+    end
+  end
 end
 
 Controls.take.EventHandler=function(ctrl)
-
-videohub:Write("VIDEO OUTPUT ROUTING:\r\n"..output.." "..input.."\r\n\r\n")
-print("YOUR OUTPUT IS:   VIDEO OUTPUT ROUTING:\r\n"..input.." "..output.."\r\n\r\n")
+  videohub:Write("VIDEO OUTPUT ROUTING:\r\n"..output.." "..input.."\r\n\r\n")
+  print("YOUR OUTPUT IS:   VIDEO OUTPUT ROUTING:\r\n"..input.." "..output.."\r\n\r\n")
 end
 
 
 
 videohub:Connect(ip,port)
-
