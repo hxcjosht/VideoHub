@@ -34,14 +34,15 @@ end
 
 Controls.update.EventHandler = function ()
   outlabelupdate()
-
+  --inlabelupdate()
+  wait:Start(10)
 end 
 
 function outlabelupdate()
   local count = 0 
   videohub:Write("OUTPUT LABELS:\n\n")
   local response = videohub:Read(videohub.BufferLength)
-   if string.find(response, "ACK") then
+  if string.find(response, "ACK") then
     for line in string.gmatch(response, "[^\n]+") do 
       index, label = string.match(line, "(%d+)%s(.+)")
         if index and label then 
@@ -50,7 +51,7 @@ function outlabelupdate()
         end 
       if count >= model then break end 
     end 
-   end 
+  end 
   print(response)
   Controls.output.Choices = output_labels
 end
@@ -58,8 +59,9 @@ end
 function inlabelupdate()
   local count = 0 
   videohub:Write("INPUT LABELS:\n\n")
+  print("INPUTS GO!")
   local response = videohub:Read(videohub.BufferLength)
-   if string.find(response, "ACK") then
+  if string.find(response, "ACK") then
     for line in string.gmatch(response, "[^\n]+") do 
       index, label = string.match(line, "(%d+)%s(.+)")
         if index and label then 
@@ -68,9 +70,19 @@ function inlabelupdate()
         end 
       if count >= model then break end 
     end 
-   end 
+  end 
   print(response)
   Controls.input.Choices = input_labels
 end
+
+
+wait = Timer.New()
+
+wait.EventHandler = function()
+  inlabelupdate()
+  print("DONE")
+  wait:Stop()
+end 
+
 
 videohub:Connect(ip,port)
